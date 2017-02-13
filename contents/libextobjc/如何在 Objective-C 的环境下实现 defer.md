@@ -111,9 +111,25 @@ __strong ext_cleanupBlock_t ext_exitBlock_19 __attribute__((cleanup(ext_executeC
 这里，我们分几个部分来分析上面的代码片段是如何实现 `defer` 的功能的：
 
 1. `ext_keywordify` 也是一个宏定义，它通过添加在宏之前添加 `autoreleasepool {}` 强迫 `onExit` 前必须加上 `@` 符号。
-
-    ```objectivec
-    #define ext_keywordify autoreleasepool {}
+    这里作者用 DEBUG 宏区分了开发和生产环境, 我们可以看到, 生产环境用的是 try catch, 目的是为了避免插入过多不必要的自动释放池
+    
+    ```objectivec
+// Details about the choice of backing keyword:
+//
+// The use of @try/@catch/@finally can cause the compiler to suppress
+// return-type warnings.
+// The use of @autoreleasepool {} is not optimized away by the compiler,
+// resulting in superfluous creation of autorelease pools.
+//
+// Since neither option is perfect, and with no other alternatives, the
+// compromise is to use @autorelease in DEBUG builds to maintain compiler
+// analysis, and to use @try/@catch otherwise to avoid insertion of unnecessary
+// autorelease pools.
+#if defined(DEBUG) && !defined(NDEBUG)
+#define ext_keywordify autoreleasepool {}
+#else
+#define ext_keywordify try {} @catch (...) {}
+#endif
     ```
 
 2. `ext_cleanupBlock_t` 是一个类型：
